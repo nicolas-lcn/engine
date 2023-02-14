@@ -14,6 +14,7 @@ GLFWwindow* window;
 // Include GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp> 
 #include <iostream>
 
 using namespace glm;
@@ -21,6 +22,9 @@ using namespace glm;
 #include <common/shader.hpp>
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
+#include <common/controls.hpp>
+
+#include "Square.h"
 
 void processInput(GLFWwindow *window);
 
@@ -40,6 +44,14 @@ float lastFrame = 0.0f;
 //rotation
 float angle = 0.;
 float zoom = 1.;
+
+// Model matrix
+glm::mat4 model(1.0f);
+// View matrix : camera/view transformation lookat() utiliser camera_position camera_target camera_up
+glm::mat4 view(1.0f);
+// Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
+glm::mat4 projection(1.0f);
+
 /*******************************************************************************/
 
 int main( void )
@@ -79,8 +91,9 @@ int main( void )
 
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+    // glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
     // Hide the mouse and enable unlimited mouvement
-    //  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Set the mouse at the center of the screen
     glfwPollEvents();
@@ -107,14 +120,27 @@ int main( void )
     /*****************TODO***********************/
     // Get a handle for our "Model View Projection" matrices uniforms
 
+    GLuint modelID = glGetUniformLocation(programID, "model");
+    GLuint projectionID = glGetUniformLocation(programID, "projection");
+    GLuint viewID = glGetUniformLocation(programID, "view");
+
     /****************************************/
     std::vector<unsigned short> indices; //Triangles concaténés dans une liste
     std::vector<std::vector<unsigned short> > triangles;
     std::vector<glm::vec3> indexed_vertices;
+    std::vector<glm::vec2> uv0;
+    std::vector<glm::vec3> normals;
 
     //Chargement du fichier de maillage
-    std::string filename("chair.off");
-    loadOFF(filename, indexed_vertices, indices, triangles );
+    // std::string filename("chair.off");
+    // loadOFF(filename, indexed_vertices, indices, triangles );
+
+    Square s = Square(glm::vec3(0.0,1.0,0.0), glm::vec3(1.0,1.0,0.0), glm::vec3(1.0,0.0,0.0), glm::vec3(0.0,0.0,0.0), 2);
+    for (int i = 0; i < s.indexes().size(); ++i)
+    {
+        indices.push_back(s.indexes()[i]);
+    }
+    indexed_vertices = s.vertices();
 
     // Load it into a VBO
 
@@ -128,6 +154,16 @@ int main( void )
     glGenBuffers(1, &elementbuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
+
+    GLuint uv0Buffer;
+    glGenBuffers(1, &uv0Buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
+    glBufferData(GL_ARRAY_BUFFER, uv0.size() * sizeof(glm::vec2), &uv0[0], GL_STATIC_DRAW);
+
+    GLuint normalsBuffer;
+    glGenBuffers(1, &normalsBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
+    glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0], GL_STATIC_DRAW);
 
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);
@@ -153,6 +189,7 @@ int main( void )
         processInput(window);
 
 
+
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -169,6 +206,19 @@ int main( void )
 
         // Send our transformation to the currently bound shader,
         // in the "Model View Projection" to the shader uniforms
+        //computeMatricesFromInputs();
+
+        model = glm::mat4(1.0f);
+
+        view = getViewMatrix();
+
+        projection = getProjectionMatrix();
+
+        glUniformMatrix4fv(modelID, 1, false, glm::value_ptr(model));
+        glUniformMatrix4fv(projectionID, 1, false, glm::value_ptr(projection));
+        glUniformMatrix4fv(viewID, 1, false, glm::value_ptr(view));
+
+        // glUniformMatrix4fv(MVP, 1, false, &mvp[0][0]);
 
         /****************************************/
 
@@ -186,6 +236,12 @@ int main( void )
                     0,                  // stride
                     (void*)0            // array buffer offset
                     );
+
+        glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
 
         // Index buffer
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
@@ -220,7 +276,6 @@ int main( void )
     return 0;
 }
 
-
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
@@ -228,12 +283,15 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    //Camera zoom in and out
-    float cameraSpeed = 2.5 * deltaTime;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera_position += cameraSpeed * camera_target;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera_position -= cameraSpeed * camera_target;
+    // //Camera zoom in and out
+    // float cameraSpeed = 2.5 * deltaTime;
+    // if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    //     camera_position += cameraSpeed * camera_target;
+    // if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    //     camera_position -= cameraSpeed * camera_target;
+
+    computeMatricesFromInputs();
+
 
     //TODO add translations
 
