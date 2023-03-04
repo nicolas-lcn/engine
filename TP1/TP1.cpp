@@ -23,10 +23,12 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
 #include <common/controls.hpp>
+#include <common/texture.hpp>
 
 #include "Square.h"
 
 void processInput(GLFWwindow *window);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -36,13 +38,15 @@ const unsigned int SCR_HEIGHT = 600;
 glm::vec3 camera_position   = glm::vec3(0.0f, 0.0f,  3.0f);
 glm::vec3 camera_target = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
+bool isInFreeMode = true;
 
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 
 //rotation
-float angle = 0.;
+float orbitAngle = 0.;
+float orbitSpeed = 0.;
 float zoom = 1.;
 
 // Model matrix
@@ -51,6 +55,11 @@ glm::mat4 model(1.0f);
 glm::mat4 view(1.0f);
 // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 glm::mat4 projection(1.0f);
+
+int terrain_resolution = 4;
+int previous_res = terrain_resolution;
+
+
 
 /*******************************************************************************/
 
@@ -135,12 +144,22 @@ int main( void )
     // std::string filename("chair.off");
     // loadOFF(filename, indexed_vertices, indices, triangles );
 
-    Square s = Square(glm::vec3(0.0,1.0,0.0), glm::vec3(1.0,1.0,0.0), glm::vec3(1.0,0.0,0.0), glm::vec3(0.0,0.0,0.0), 2);
+    Square s = Square(glm::vec3(-1.0,0.0,-1.0), glm::vec3(1.0,0.0,-1.0), glm::vec3(1.0,0.0,1.0), glm::vec3(-1.0,0.0,1.0), terrain_resolution);
+    //Square s = Square(glm::vec3(0.0,1.0,0.0), glm::vec3(1.0,1.0,0.0), glm::vec3(1.0,0.0,0.0), glm::vec3(0.0,0.0,0.0), 2);
     for (int i = 0; i < s.indexes().size(); ++i)
     {
         indices.push_back(s.indexes()[i]);
     }
-    indexed_vertices = s.vertices();
+    for (int i = 0; i < s.vertices().size(); ++i)
+    {
+        indexed_vertices.push_back(s.vertices()[i]);
+        uv0.push_back(s.texCoords()[i]);
+        normals.push_back(s.normals()[i]);
+    }
+
+    camera_target = s.center();
+    //initCameraParameters(camera_target);
+    
 
     // Load it into a VBO
 
@@ -155,20 +174,27 @@ int main( void )
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
 
-    GLuint uv0Buffer;
-    glGenBuffers(1, &uv0Buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
-    glBufferData(GL_ARRAY_BUFFER, uv0.size() * sizeof(glm::vec2), &uv0[0], GL_STATIC_DRAW);
-
     GLuint normalsBuffer;
     glGenBuffers(1, &normalsBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
     glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0], GL_STATIC_DRAW);
 
+    GLuint uv0Buffer;
+    glGenBuffers(1, &uv0Buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
+    glBufferData(GL_ARRAY_BUFFER, uv0.size() * sizeof(glm::vec2), &uv0[0], GL_STATIC_DRAW);
+
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);
     GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 
+    GLuint m_ground = loadBMP_custom("../data/grass.bmp");
+    GLuint m_h_ground = loadBMP_custom("../data/rock.bmp");
+    GLuint m_heights = loadBMP_custom("../data/snowrocks.bmp");
+
+    GLuint m_heightmap = loadBMP_custom("../data/Heightmap_Mountain.bmp");
+    
+    glfwSetKeyCallback(window, key_callback);
 
 
     // For speed computation
@@ -187,6 +213,35 @@ int main( void )
         // input
         // -----
         processInput(window);
+
+        if(previous_res != terrain_resolution)
+        {
+            s.setResolution(terrain_resolution);
+            indices.clear();
+            indexed_vertices.clear();
+            uv0.clear();
+            normals.clear();
+            for (int i = 0; i < s.indexes().size(); ++i)
+            {
+                indices.push_back(s.indexes()[i]);
+            }
+            for (int i = 0; i < s.vertices().size(); ++i)
+            {
+                indexed_vertices.push_back(s.vertices()[i]);
+                uv0.push_back(s.texCoords()[i]);
+                normals.push_back(s.normals()[i]);
+            }
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+            glBufferData(GL_ARRAY_BUFFER, indexed_vertices.size() * sizeof(glm::vec3), &indexed_vertices[0], GL_STATIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
+            glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0], GL_STATIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
+            glBufferData(GL_ARRAY_BUFFER, uv0.size() * sizeof(glm::vec2), &uv0[0], GL_STATIC_DRAW);
+            previous_res = terrain_resolution;
+        }
+        
 
 
 
@@ -209,6 +264,8 @@ int main( void )
         //computeMatricesFromInputs();
 
         model = glm::mat4(1.0f);
+        if(!isInFreeMode) model = glm::rotate(model, glm::radians(orbitAngle), glm::vec3(0.f, 1.f, 0.f));
+        orbitAngle += orbitSpeed;
 
         view = getViewMatrix();
 
@@ -241,10 +298,32 @@ int main( void )
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
 
         glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
 
         // Index buffer
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+
+        
+        glBindTexture(GL_TEXTURE_2D, m_heightmap);
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(programID, "heightmap"), 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, m_ground);
+        glUniform1i(glGetUniformLocation(programID, "ground"), 1);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, m_h_ground);
+        glUniform1i(glGetUniformLocation(programID, "h_ground"), 2);
+
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, m_heights);
+        glUniform1i(glGetUniformLocation(programID, "heights"), 3);
+
+        glEnableVertexAttribArray(2);
+
+        
+       
 
         // Draw the triangles !
         glDrawElements(
@@ -254,7 +333,10 @@ int main( void )
                     (void*)0           // element array buffer offset
                     );
 
+       
+
         glDisableVertexAttribArray(0);
+
 
         // Swap buffers
         glfwSwapBuffers(window);
@@ -283,6 +365,8 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+
+
     // //Camera zoom in and out
     // float cameraSpeed = 2.5 * deltaTime;
     // if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -292,9 +376,41 @@ void processInput(GLFWwindow *window)
 
     computeMatricesFromInputs();
 
+    
+
 
     //TODO add translations
 
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if(key == GLFW_KEY_EQUAL && action == GLFW_PRESS)
+    {
+        terrain_resolution *= 2;
+    }
+
+    if(key == GLFW_KEY_6 && action == GLFW_PRESS)
+    {
+        if(terrain_resolution >= 4) terrain_resolution /= 2;
+    }
+
+    if(key == GLFW_KEY_C && action == GLFW_PRESS)
+    {
+        isInFreeMode = !isInFreeMode;
+        glm::vec3 position = isInFreeMode ? glm::vec3( 0, 0, 5 ) : glm::vec3(0,5,5);
+        float verticalAngle = isInFreeMode ? 0.2f : -M_PI/4;
+        setParameters(position, verticalAngle, 3.14f, isInFreeMode);
+    }
+
+    if(key == GLFW_KEY_UP && action == GLFW_PRESS)
+    {
+        orbitSpeed += 2.0f;
+    }
+    if(key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+    {
+        orbitSpeed -= 2.0f;
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

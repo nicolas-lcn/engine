@@ -2,6 +2,7 @@
 #define SQUARE_H
 
 #include "Mesh.h"
+#include <random>
 
 class Square : public Mesh
 {
@@ -27,6 +28,12 @@ public:
     glm::vec3 bottomRight() const {return this->m_c2;}
     glm::vec3 normal() const { return glm::cross((bottomRight() - bottomLeft()) , (upLeft() - bottomLeft()));}
 
+    void setResolution(int _resolution)
+    {
+    	this->resolution = _resolution;
+    	buildArrays();
+    }
+
     void buildArrays()
     {
     	glm::vec3 bottom = bottomLeft() - upLeft();
@@ -45,6 +52,9 @@ public:
 
 		float stepJ = w/(float)resolution;
 		float stepI = h/(float)resolution;
+		float stepU, stepV;
+		stepU = 1/(float)resolution;
+		stepV = 1/(float)resolution;
 		m_indexes.clear();m_vertices.clear();m_normals.clear();m_uv.clear();
 		m_indexes.resize(6*resolution*resolution);
 		m_vertices.resize(nb_v*nb_v);
@@ -59,12 +69,12 @@ public:
 				current += normalizeR*stepJ;
 				m_normals[i*nb_v+j] = normal();
 				m_uv[i*nb_v+j] = glm::vec2(u,v);
-				v += stepJ;
+				v += stepV;
 			}
 			current = previous;
 			current += normalizeB*stepI;
 			previous = current;
-			u+=stepI;
+			u+=stepU;
 		}
 		
 		int index = 0;

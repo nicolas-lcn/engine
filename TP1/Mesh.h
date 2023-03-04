@@ -38,6 +38,18 @@ public:
 	std::vector<glm::vec3> vertices(){return m_vertices;}
 	std::vector<unsigned int> indexes(){return m_indexes;}
 	std::vector<std::vector<unsigned int>> triangles(){return m_triangles;}
+	std::vector<glm::vec2> texCoords(){return m_uv;}
+	std::vector<glm::vec3> normals(){return m_normals;}
+
+	glm::vec3 center()
+	{
+		glm::vec3 result = glm::vec3();
+		for (int i = 0; i < m_vertices.size(); ++i) {
+			result += glm::vec3(m_vertices[i][0], m_vertices[i][1], m_vertices[i][2]);
+		}
+		result *= (1.0/(float) m_vertices.size());
+		return result;
+	}
 
 
 };

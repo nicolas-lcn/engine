@@ -62,6 +62,8 @@ add_executable(TP1
 	common/controls.hpp
 	common/texture.cpp
 	common/texture.hpp
+	common/stb_image.cpp
+	common/stb_image.h
 	common/objloader.cpp
 	common/objloader.hpp
 	common/vboindexer.cpp

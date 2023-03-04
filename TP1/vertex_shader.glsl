@@ -9,15 +9,22 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+uniform sampler2D heightmap;
+
 out vec3 o_normalWorld;
 out vec2 o_uv0;
+out float o_height;
 
 void main(){
 	mat4 MVP = projection * view * model;
 	mat3 normalMatrix = mat3(transpose(inverse(model)));
+
+	vec4 height = texture(heightmap, uv0);
+	vec4 offset = vec4(vertices_position_modelspace.x , vertices_position_modelspace.y + height.r, vertices_position_modelspace.z , 1.0);
 	o_uv0 = uv0;
+	o_height = offset.y;
 	o_normalWorld = normalMatrix * normal_modelspace;
-    gl_Position = MVP * vec4(vertices_position_modelspace,1);
+    gl_Position = MVP * offset;
 
 }
 

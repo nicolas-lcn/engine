@@ -2,12 +2,15 @@
 #include <GLFW/glfw3.h>
 extern GLFWwindow* window; // The "extern" keyword here is to access the variable "window" declared in tutorialXXX.cpp. This is a hack to keep the tutorials simple. Please avoid this.
 
+
+#include <stdio.h>
 // Include GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 using namespace glm;
 
 #include "controls.hpp"
+#include <glm/gtx/vector_angle.hpp>
 
 glm::mat4 ViewMatrix;
 glm::mat4 ProjectionMatrix;
@@ -25,13 +28,32 @@ glm::vec3 position = glm::vec3( 0, 0, 5 );
 // Initial horizontal angle : toward -Z
 float horizontalAngle = 3.14f;
 // Initial vertical angle : none
-float verticalAngle = 0.0f;
+float verticalAngle = 0.2f;
 // Initial Field of View
 float initialFoV = 45.0f;
+
+bool isFree;
+
 
 float speed = 3.0f; // 3 units / second
 float mouseSpeed = 0.0005f;
 
+// void initCameraParameters(glm::vec3 camera_target)
+// {
+// 	glm::vec3 initial = glm::vec3(
+// 		cos(verticalAngle) * sin(horizontalAngle), 
+// 		sin(verticalAngle),
+// 		cos(verticalAngle) * cos(horizontalAngle)
+// 	);
+// 	m_target = camera_target;
+// 	glm::vec3 directionNormalized = glm::normalize(camera_target - position);
+// 	verticalAngle = glm::angle(initial, directionNormalized);
+// }
+
+void setParameters(glm::vec3 _position, float _verticalAngle, float _horizontalAngle, bool mode)
+{
+	position = _position; verticalAngle = _verticalAngle; horizontalAngle = _horizontalAngle; isFree = mode;
+}
 
 
 void computeMatricesFromInputs(){
@@ -51,9 +73,11 @@ void computeMatricesFromInputs(){
 	glfwSetCursorPos(window, 1024/2, 768/2);
 
 	// Compute new orientation
-	
-	horizontalAngle += mouseSpeed * float(1024/2 - xpos );
-	verticalAngle   += mouseSpeed * float( 768/2 - ypos );
+	if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && isFree)
+	{
+		horizontalAngle += mouseSpeed * float(1024/2 - xpos );
+		verticalAngle   += mouseSpeed * float( 768/2 - ypos );
+	}
 	
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
@@ -62,6 +86,7 @@ void computeMatricesFromInputs(){
 		sin(verticalAngle),
 		cos(verticalAngle) * cos(horizontalAngle)
 	);
+	//glm::vec3 direction(m_target - position);
 	
 	// Right vector
 	glm::vec3 right = glm::vec3(
@@ -74,21 +99,24 @@ void computeMatricesFromInputs(){
 	glm::vec3 up = glm::cross( right, direction );
 
 	// Move forward
-	if (glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS){
+	if (glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS){
 		position += direction * deltaTime * speed;
 	}
 	// Move backward
-	if (glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS){
+	if (glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS){
 		position -= direction * deltaTime * speed;
 	}
 	// Strafe right
-	if (glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS){
+	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS){
 		position += right * deltaTime * speed;
 	}
 	// Strafe left
-	if (glfwGetKey( window, GLFW_KEY_LEFT ) == GLFW_PRESS){
+	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS){
 		position -= right * deltaTime * speed;
 	}
+
+
+
 
 	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 
@@ -104,3 +132,4 @@ void computeMatricesFromInputs(){
 	// For the next frame, the "last time" will be "now"
 	lastTime = currentTime;
 }
+
