@@ -15,19 +15,25 @@
 class Model
 {
 public:
-	std::vector<Mesh> meshes;
+	std::vector<Mesh*> meshes;
 
-	Model(const char* path, unsigned int type){loadModel(path, type);}
+	Model(const char* path, unsigned int type){loadMesh(path, type);}
 
 	void Draw(GLuint shaderID)
 	{
 		for (size_t i = 0; i < meshes.size(); ++i)
 		{
-			meshes[i].draw(shaderID);
+			meshes[i]->draw(shaderID);
 		}
 	}
-private:
-	void loadModel(const char* path, unsigned int type)
+
+	void addMesh(const char* path, unsigned int type)
+	{
+		loadMesh(path, type);
+	}
+	
+protected:
+	void loadMesh(const char* path, unsigned int type)
 	{
 		std::vector<unsigned short> indices; //Triangles concaténés dans une liste
 	    std::vector<glm::vec3> indexed_vertices;
@@ -35,24 +41,24 @@ private:
 	    std::vector<glm::vec3> normals;
      	std::vector<std::vector<unsigned short> > triangles;
 
-     	Mesh mesh;
+     	Mesh* mesh;
 	    //Chargement du fichier de maillage
 	    switch(type)
 	    {
 	    	case OBJ:  
 	    		loadOBJ(path, indexed_vertices, uvs, normals);
 	    		indexVBO(indexed_vertices, uvs, normals, indices, indexed_vertices, uvs, normals);
-	    		mesh = Mesh(indexed_vertices, normals, indices, uvs);
+	    		mesh = new Mesh(indexed_vertices, normals, indices, uvs);
 	    		break;
 	    	case OFF:  
 	    		loadOFF(path, indexed_vertices, indices, triangles);
-	    		mesh = Mesh(indexed_vertices, indices, triangles);
+	    		mesh = new Mesh(indexed_vertices, indices, triangles);
 	    		break;
 	    	case SQUARE:
-	    		mesh = static_cast<Mesh>(Square());
+	    		mesh = dynamic_cast<Mesh*>(new Square(glm::vec3(-1.0,0.0,-1.0), glm::vec3(1.0,0.0,-1.0), glm::vec3(1.0,0.0,1.0), glm::vec3(-1.0,0.0,1.0), 32));
 	    		break;
 	    	default:
-	    		mesh = static_cast<Mesh>(Sphere(1, {0.f, 0.f, 0.f}));
+	    		mesh = dynamic_cast<Mesh*>(new Sphere(1, {0.f, 0.f, 0.f}));
 	    		break;
 	    }
 	   

@@ -50,8 +50,10 @@ protected:
 
 	std::vector<Texture> textures;
 	std::vector<std::vector<unsigned short>> m_triangles;
+
 public:
 	Mesh(){};
+	virtual ~Mesh(){};
 	
 	Mesh(std::vector<glm::vec3> vertices, std::vector<unsigned short> indexes, std::vector<std::vector<unsigned short>> triangles):
 	m_vertices(vertices), m_indexes(indexes), m_triangles(triangles)
@@ -178,7 +180,6 @@ public:
         }
         glEnableVertexAttribArray(2);
 
-       
         // Draw the triangles !
         glDrawElements(
                     GL_TRIANGLES,      // mode

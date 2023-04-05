@@ -7,6 +7,9 @@ in float o_height;
 uniform sampler2D ground;
 uniform sampler2D h_ground;
 uniform sampler2D heights;
+
+uniform sampler2D objectTex;
+uniform bool isFragTerrain;
 // Ouput data
 out vec4 FragColor;
 
@@ -15,10 +18,39 @@ void main(){
 	vec4 h_groundTex = texture(h_ground, o_uv0);
 	vec4 heightsTex = texture(heights, o_uv0);
 
-	if(o_height < 0.5) FragColor = groundTex;
-	else if(o_height >= 0.5 && o_height <= 0.51) FragColor = mix(groundTex, h_groundTex, 0.5);
-	else if(o_height <=0.7) FragColor = h_groundTex;
-	else if(o_height > 0.7 && o_height <= 0.71) FragColor = mix(h_groundTex, heightsTex, 0.5);
-	else FragColor =  heightsTex;
-	//mix(groundTex, (mix(h_groundTex, heightsTex, o_height)), o_height);
+	// if(!isFragTerrain) FragColor = texture(objectTex, o_uv0);
+	if(!isFragTerrain) FragColor = vec4(0.5, 0.5, 0.5, 1);
+
+	else
+	{
+		if(o_height < 0.42) 
+		{
+			float c_g, c_r;
+			if(o_height < 0.38) c_g =  1;
+			else if(o_height > 0.4) c_g = 1 - (1 - o_height);
+			else c_g = (1 - o_height);
+			if(o_height < 0.38) c_r = 0; 
+			else if(o_height > 0.4) c_r = (1 - o_height);
+			else c_r = 1 - (1 - o_height);
+			FragColor = groundTex * c_g + h_groundTex * c_r;
+		}
+		else if(o_height >= 0.42 && o_height < 0.78)
+		{	
+			FragColor = h_groundTex;
+		}
+		else
+		{
+			float c_r, c_sr;
+			if(o_height < 0.78) c_sr = 1;
+			else if (o_height > 0.8) c_sr =  1 - (1 - o_height);
+			else c_sr = (1 - o_height);
+			if(o_height < 0.78) c_r =  0 ;
+			else if (o_height > 0.8) c_r = (1 - o_height);
+			else c_r =  1 - (1 - o_height);
+			FragColor = h_groundTex * c_r + heightsTex * c_sr;
+		}
+		
+	}
 }
+
+

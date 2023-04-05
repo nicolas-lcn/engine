@@ -21,6 +21,7 @@ public:
 	Mesh(), m_c0(c0), m_c1(c1), m_c2(c2), m_c3(c3), resolution(_resolution)
 	{
 		buildArrays();
+		this->setup();
 	}
     glm::vec3 bottomLeft() const { return this->m_c3; }
 	glm::vec3 upRight() const { return this->m_c1; }
@@ -32,6 +33,7 @@ public:
     {
     	this->resolution = _resolution;
     	buildArrays();
+    	this->setup();
     }
 
     void buildArrays()

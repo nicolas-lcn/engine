@@ -23,14 +23,17 @@ glm::mat4 getProjectionMatrix(){
 }
 
 
+
 // Initial position : on +Z
-glm::vec3 position = glm::vec3( 0, 0, 30 ); 
+glm::vec3 position = glm::vec3( 0, 0, 10 ); 
 // Initial horizontal angle : toward -Z
 float horizontalAngle = 3.14f;
 // Initial vertical angle : none
 float verticalAngle = 0.2f;
 // Initial Field of View
 float initialFoV = 45.0f;
+
+bool isFree = true;
 
 
 
@@ -49,6 +52,13 @@ float mouseSpeed = 0.0005f;
 // 	verticalAngle = glm::angle(initial, directionNormalized);
 // }
 
+glm::vec3 getCamPosition(){return position;}
+
+
+void setParameters(glm::vec3 _position, float _verticalAngle, float _horizontalAngle, bool mode)
+{
+	position = _position; verticalAngle = _verticalAngle; horizontalAngle = _horizontalAngle; isFree = mode;
+}
 
 void computeMatricesFromInputs(){
 
@@ -67,7 +77,7 @@ void computeMatricesFromInputs(){
 	glfwSetCursorPos(window, 1024/2, 768/2);
 
 	// Compute new orientation
-	if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+	if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && isFree)
 	{
 		horizontalAngle += mouseSpeed * float(1024/2 - xpos );
 		verticalAngle   += mouseSpeed * float( 768/2 - ypos );
@@ -101,11 +111,11 @@ void computeMatricesFromInputs(){
 		position -= direction * deltaTime * speed;
 	}
 	// Strafe right
-	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS){
+	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS && isFree){
 		position += right * deltaTime * speed;
 	}
 	// Strafe left
-	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS){
+	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS && isFree){
 		position -= right * deltaTime * speed;
 	}
 

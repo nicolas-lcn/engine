@@ -138,5 +138,17 @@ public:
     }
 };
 
+class LODEntity : public Entity
+{
+private:
+    int current;
+public:
+    LODEntity(const char* path, unsigned int type) : Entity(path, type), current(0){}
+    void nextLevel(){(current+1 >= this->meshes.size())? current = 0 : current ++;}
+    void setCurrentLevel(int level){current = level;}
+    bool isMaxLevel(){return current == this->meshes.size()-1;}
+    void Draw(GLuint shaderID){this->meshes[current]->draw(shaderID);}
+};
+
 #endif
     

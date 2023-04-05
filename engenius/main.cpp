@@ -23,11 +23,13 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
 #include <common/controls.hpp>
+#include <common/stb_image.h>
 
 #include "Entity.h"
 
 void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+bool computeCollisions(Entity &a, Entity &terrain, const char* pathHeightMap, float offset, float &moveY);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -57,6 +59,10 @@ glm::mat4 projection(1.0f);
 
 int terrain_resolution = 4;
 int previous_res = terrain_resolution;
+
+//character
+float characterSpeed = 5.0f;
+glm::vec3 move;
 
 
 
@@ -99,7 +105,6 @@ int main( void )
 
     // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-    // glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
     // Hide the mouse and enable unlimited mouvement
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -118,25 +123,56 @@ int main( void )
     // Cull triangles which normal is not towards the camera
     //glEnable(GL_CULL_FACE);
 
-    // GLuint VertexArrayID;
-    // glGenVertexArrays(1, &VertexArrayID);
-    // glBindVertexArray(VertexArrayID);
 
-    Entity sun("../data/models/planet.obj", 3);
-    sun.addChild("../data/models/planet.obj", 3);
-    sun.transform.setScale({2.f, 2.f, 2.f});
-    Entity* earth = sun.children.back().get();
-    earth->addChild("../data/models/planet.obj", 3);
-    Entity* moon = earth->children.back().get();
-    moon->transform.setScale({.5,0.5,0.5});
-    moon->transform.setLocalPosition({1.0, 0.5, 0.5});
-    earth->transform.setScale({1.5, 1.5, 1.5}); 
-    earth->transform.setLocalPosition({6.0, 0.0, 0.0});
-    earth->transform.setEulerRot({0.f, 0.f, 23.0f});
-    sun.updateSelfAndChild();
+///////////////////   SOLAR SYSTEM ////////////////////////////////// 
+    // Entity sun("../data/models/planet.obj", 3);
+    // sun.addChild("../data/models/planet.obj", 3);
+    // sun.transform.setScale({2.f, 2.f, 2.f});
+    // Entity* earth = sun.children.back().get();
+    // earth->addChild("../data/models/planet.obj", 3);
+    // Entity* moon = earth->children.back().get();
+    // moon->transform.setScale({.5,0.5,0.5});
+    // moon->transform.setLocalPosition({1.0, 0.5, 0.5});
+    // earth->transform.setScale({1.5, 1.5, 1.5}); 
+    // earth->transform.setLocalPosition({6.0, 0.0, 0.0});
+    // earth->transform.setEulerRot({0.f, 0.f, 23.0f});
+    // sun.updateSelfAndChild();
+    // sun.meshes[0].addTexture("../data/textures/sun.bmp", "tex");
+    // earth->meshes[0].addTexture("../data/textures/earth.bmp", "tex");
+    // moon->meshes[0].addTexture("../data/textures/moon.bmp", "tex");
+
+/////////////////////////////////////////////////////////////////////
+
+    ////////////////// TERRAIN ///////////////////
+
+    Entity terrain("dummy terrain", 2);
+    terrain.transform.setScale(glm::vec3(3.0f));
+    terrain.updateSelfAndChild();
+    terrain.meshes[0]->addTexture("../data/textures/grass.bmp", "ground");
+    terrain.meshes[0]->addTexture("../data/textures/rock.bmp", "h_ground");
+    terrain.meshes[0]->addTexture("../data/textures/snowrocks.bmp", "heights");
+    terrain.meshes[0]->addTexture("../data/textures/Heightmap_Mountain.bmp", "heightmap");
+
+    // Entity character = Entity("dummy sphere", 3);
+    // character.transform.setLocalPosition(glm::vec3(1.0f));
+    // character.transform.setScale(glm::vec3(3.0f));
+    // character.updateSelfAndChild();
+    // character.meshes[0]->addTexture("../data/textures/leopard.bmp", "objectTex");
+
+    ////////// LOD BUNNY //////////////
+    LODEntity character("../data/models/icosphere.off", 1);
+    character.addMesh("../data/models/icosphere1.off", 1);
+    character.addMesh("../data/models/icosphere2.off", 1);
+    
+
+    // character.transform.setScale(glm::vec3(2.0f));
+    character.updateSelfAndChild();
+
+//////////////////////////////////////////////////////////////////////
 
     // Create and compile our GLSL program from the shaders
-    GLuint programID = LoadShaders( "./shaders/vertex_solarsystem.glsl", "./shaders/fragment_solarsystem.glsl" );
+    // GLuint programID = LoadShaders( "./shaders/vertex_solarsystem.glsl", "./shaders/fragment_solarsystem.glsl" );
+    GLuint programID = LoadShaders( "./shaders/vertex_terrain.glsl", "./shaders/fragment_terrain.glsl" );
 
     /*****************TODO***********************/
     // Get a handle for our "Model View Projection" matrices uniforms
@@ -145,76 +181,16 @@ int main( void )
     GLuint projectionID = glGetUniformLocation(programID, "projection");
     GLuint viewID = glGetUniformLocation(programID, "view");
 
-    
-    /****************************************/
-    // std::vector<unsigned short> indices; //Triangles concaténés dans une liste
-    // std::vector<std::vector<unsigned short> > triangles;
-    // std::vector<glm::vec3> indexed_vertices;
-    // std::vector<glm::vec2> uvs;
-    // std::vector<glm::vec3> normals;
-
-    // //Chargement du fichier de maillage
-    // loadOBJ("../data/models/icosphere.obj", indexed_vertices, uvs, normals);
-    // indexVBO(indexed_vertices, uvs, normals, indices, indexed_vertices, uvs, normals);
-    // std::string filename("chair.off");
-    // loadOFF(filename, indexed_vertices, indices, triangles );
-
-    // Square s = Square(glm::vec3(-1.0,0.0,-1.0), glm::vec3(1.0,0.0,-1.0), glm::vec3(1.0,0.0,1.0), glm::vec3(-1.0,0.0,1.0), terrain_resolution);
-    // //Square s = Square(glm::vec3(0.0,1.0,0.0), glm::vec3(1.0,1.0,0.0), glm::vec3(1.0,0.0,0.0), glm::vec3(0.0,0.0,0.0), 2);
-    // for (int i = 0; i < s.indexes().size(); ++i)
-    // {
-    //     indices.push_back(s.indexes()[i]);
-    // }
-    // for (int i = 0; i < s.vertices().size(); ++i)
-    // {
-    //     indexed_vertices.push_back(s.vertices()[i]);
-    //     uvs.push_back(s.texCoords()[i]);
-    //     normals.push_back(s.normals()[i]);
-    // }
-
-    // camera_target = s.center();
-    //initCameraParameters(camera_target);
-    
-
-    // Load it into a VBO
-
-    // GLuint vertexbuffer;
-    // glGenBuffers(1, &vertexbuffer);
-    // glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    // glBufferData(GL_ARRAY_BUFFER, indexed_vertices.size() * sizeof(glm::vec3), &indexed_vertices[0], GL_STATIC_DRAW);
-
-    // // Generate a buffer for the indices as well
-    // GLuint elementbuffer;
-    // glGenBuffers(1, &elementbuffer);
-    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
-
-    // GLuint normalsBuffer;
-    // glGenBuffers(1, &normalsBuffer);
-    // glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
-    // glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0], GL_STATIC_DRAW);
-
-    // GLuint uvsBuffer;
-    // glGenBuffers(1, &uvsBuffer);
-    // glBindBuffer(GL_ARRAY_BUFFER, uvsBuffer);
-    // glBufferData(GL_ARRAY_BUFFER, uvs.size() * sizeof(glm::vec2), &uvs[0], GL_STATIC_DRAW);
-
     // Get a handle for our "LightPosition" uniform
     glUseProgram(programID);
     GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 
-    // GLuint m_ground = loadBMP_custom("../data/textures/grass.bmp");
-    // GLuint m_h_ground = loadBMP_custom("../data/textures/rock.bmp");
-    // GLuint m_heights = loadBMP_custom("../data/textures/snowrocks.bmp");
-
     // GLuint m_heightmap = loadBMP_custom("../data/textures/Heightmap_Mountain.bmp");
 
     // GLuint m_earth = loadBMP_custom("../data/textures/earth.bmp");
-    sun.meshes[0].addTexture("../data/textures/sun.bmp", "tex");
-    earth->meshes[0].addTexture("../data/textures/earth.bmp", "tex");
-    moon->meshes[0].addTexture("../data/textures/moon.bmp", "tex");
     
-    // glfwSetKeyCallback(window, key_callback);
+    
+    glfwSetKeyCallback(window, key_callback);
 
 
     // For speed computation
@@ -233,145 +209,74 @@ int main( void )
         // input
         // -----
         processInput(window);
-
-        // if(previous_res != terrain_resolution)
-        // {
-        //     s.setResolution(terrain_resolution);
-        //     indices.clear();
-        //     indexed_vertices.clear();
-        //     uvs.clear();
-        //     normals.clear();
-        //     for (int i = 0; i < s.indexes().size(); ++i)
-        //     {
-        //         indices.push_back(s.indexes()[i]);
-        //     }
-        //     for (int i = 0; i < s.vertices().size(); ++i)
-        //     {
-        //         indexed_vertices.push_back(s.vertices()[i]);
-        //         uvs.push_back(s.texCoords()[i]);
-        //         normals.push_back(s.normals()[i]);
-        //     }
-        //     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-        //     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
-        //     glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-        //     glBufferData(GL_ARRAY_BUFFER, indexed_vertices.size() * sizeof(glm::vec3), &indexed_vertices[0], GL_STATIC_DRAW);
-        //     glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
-        //     glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0], GL_STATIC_DRAW);
-        //     glBindBuffer(GL_ARRAY_BUFFER, uv0Buffer);
-        //     glBufferData(GL_ARRAY_BUFFER, uvs.size() * sizeof(glm::vec2), &uvs[0], GL_STATIC_DRAW);
-        //     previous_res = terrain_resolution;
-        // }
         
-
-
-
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Use our shader
         glUseProgram(programID);
 
-
-        /*****************TODO***********************/
         // Model matrix : an identity matrix (model will be at the origin) then change
+
+        model = glm::mat4(1.0f);
 
         // View matrix : camera/view transformation lookat() utiliser camera_position camera_target camera_up
 
+        view = getViewMatrix();
+
         // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
+
+        projection = getProjectionMatrix();
 
         // Send our transformation to the currently bound shader,
         // in the "Model View Projection" to the shader uniforms
-        //computeMatricesFromInputs();
-
-        model = glm::mat4(1.0f);
-        if(!isInFreeMode) model = glm::rotate(model, glm::radians(orbitAngle), glm::vec3(0.f, 1.f, 0.f));
-        orbitAngle += orbitSpeed;
-
-        view = getViewMatrix();
-
-        projection = getProjectionMatrix();
 
         glUniformMatrix4fv(modelID, 1, false, glm::value_ptr(model));
         glUniformMatrix4fv(projectionID, 1, false, glm::value_ptr(projection));
         glUniformMatrix4fv(viewID, 1, false, glm::value_ptr(view));
 
-        // glUniformMatrix4fv(MVP, 1, false, &mvp[0][0]);
+
+        /************ LOD **********/
+        glm::vec3 camPos = getCamPosition();
+        if(glm::length(character.transform.getLocalPosition() - camPos) < 10) character.setCurrentLevel(0);
+        else if(glm::length(character.transform.getLocalPosition() - camPos) < 15) character.setCurrentLevel(1);
+        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 6) character.setCurrentLevel(2);
+        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 8) character.setCurrentLevel(3);
+        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 10) character.setCurrentLevel(4);
+        // else character.setCurrentLevel(5);
+        else character.setCurrentLevel(2);
+
 
         /****************************************/
-        // earth.Draw(programID);
-        Entity * entity = &sun;
+        // Entity * entity = &sun;
+        glUniform1i(glGetUniformLocation(programID, "isVertTerrain"), true);
+        glUniform1i(glGetUniformLocation(programID, "isFragTerrain"), true);
+        Entity * entity = &terrain;
         while(entity != nullptr)
         {
             glUniformMatrix4fv(modelID, 1, false, glm::value_ptr(entity->transform.getModelMatrix()));
             entity->Draw(programID);
             entity = entity->children.back().get();
         }
-        earth->transform.setEulerRot({0.f, earth->transform.getEulerRot().y + (50.0f * deltaTime), 0.f});
-        sun.transform.setEulerRot({0.f, sun.transform.getEulerRot().y + (20.0f * deltaTime), 0.f});
-        sun.updateSelfAndChild();
+        if( !isInFreeMode) 
+        {
+            terrain.transform.setEulerRot({terrain.transform.getEulerRot().x, terrain.transform.getEulerRot().y + orbitAngle, terrain.transform.getEulerRot().z});
+            terrain.updateSelfAndChild();      
+        }
+        glUniform1i(glGetUniformLocation(programID, "isVertTerrain"), false);
+        glUniform1i(glGetUniformLocation(programID, "isFragTerrain"), false);
+        glUniformMatrix4fv(modelID, 1, false, glm::value_ptr(character.transform.getModelMatrix()));
+        character.Draw(programID);
+        float moveY = 0.0f;
+        bool collides = computeCollisions(character, terrain, "../data/textures/Heightmap_Mountain.bmp", 3.5, moveY);
+        move += glm::vec3(0.0f, moveY, 0.0f);
+        character.transform.setLocalPosition(character.transform.getLocalPosition() + (characterSpeed * deltaTime * move));
+        character.updateSelfAndChild();
+        move = glm::vec3(0.0f);
 
-
-
-
-        // // 1rst attribute buffer : vertices
-        // glEnableVertexAttribArray(0);
-        // glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-        // glVertexAttribPointer(
-        //             0,                  // attribute
-        //             3,                  // size
-        //             GL_FLOAT,           // type
-        //             GL_FALSE,           // normalized?
-        //             0,                  // stride
-        //             (void*)0            // array buffer offset
-        //             );
-
-        // glBindBuffer(GL_ARRAY_BUFFER, normalsBuffer);
-        // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
-
-        // glBindBuffer(GL_ARRAY_BUFFER, uvsBuffer);
-        // glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
-
-        // // Index buffer
-        // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-
-        
-        // // glBindTexture(GL_TEXTURE_2D, m_heightmap);
-        // // glActiveTexture(GL_TEXTURE0);
-        // // glUniform1i(glGetUniformLocation(programID, "heightmap"), 0);
-
-        // // glActiveTexture(GL_TEXTURE1);
-        // // glBindTexture(GL_TEXTURE_2D, m_ground);
-        // // glUniform1i(glGetUniformLocation(programID, "ground"), 1);
-
-        // // glActiveTexture(GL_TEXTURE2);
-        // // glBindTexture(GL_TEXTURE_2D, m_h_ground);
-        // // glUniform1i(glGetUniformLocation(programID, "h_ground"), 2);
-
-        // // glActiveTexture(GL_TEXTURE3);
-        // // glBindTexture(GL_TEXTURE_2D, m_heights);
-        // // glUniform1i(glGetUniformLocation(programID, "heights"), 3);
-
-        // glBindTexture(GL_TEXTURE_2D, m_earth);
-        // glActiveTexture(GL_TEXTURE0);
-        // glUniform1i(glGetUniformLocation(programID, "earth"), 0);
-
-        // glEnableVertexAttribArray(2);
-
-        
-       
-
-        // // Draw the triangles !
-        // glDrawElements(
-        //             GL_TRIANGLES,      // mode
-        //             indices.size(),    // count
-        //             GL_UNSIGNED_SHORT,   // type
-        //             (void*)0           // element array buffer offset
-        //             );
-
-       
-
-        // glDisableVertexAttribArray(0);
-
+        // earth->transform.setEulerRot({0.f, earth->transform.getEulerRot().y + (50.0f * deltaTime), 0.f});
+        // sun.transform.setEulerRot({0.f, sun.transform.getEulerRot().y + (20.0f * deltaTime), 0.f});
+        // sun.updateSelfAndChild();
 
         // Swap buffers
         glfwSwapBuffers(window);
@@ -384,13 +289,12 @@ int main( void )
     // Cleanup VBO and shader
     
     glDeleteProgram(programID);
-    // glDeleteBuffers(1, &vertexbuffer);
-    // glDeleteBuffers(1, &elementbuffer);
-    // glDeleteBuffers(1, &normalsBuffer);
-    // glDeleteBuffers(1, &uvsBuffer);
-    // glDeleteVertexArrays(1, &VertexArrayID);
-    sun.meshes[0].deleteBuffers();
-    earth->meshes[0].deleteBuffers();
+    
+    // sun.meshes[0].deleteBuffers();
+    // earth->meshes[0].deleteBuffers();
+    // moon->meshes[0].deleteBuffers();
+    terrain.meshes[0]->deleteBuffers();
+    character.meshes[0]->deleteBuffers();
 
     // Close OpenGL window and terminate GLFW
     glfwTerminate();
@@ -405,37 +309,73 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+    if(glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) move = glm::vec3(0, 0, 1);
+    if(glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) move = glm::vec3(0, 0, -1);
+    if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) move = glm::vec3(-1, 0, 0);
+    if(glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) move = glm::vec3(1, 0, 0);
+
     computeMatricesFromInputs();
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if(key == GLFW_KEY_EQUAL && action == GLFW_PRESS)
-    {
-        terrain_resolution *= 2;
-    }
+    // if(key == GLFW_KEY_EQUAL && action == GLFW_PRESS)
+    // {
+    //     terrain_resolution *= 2;
+    // }
 
-    if(key == GLFW_KEY_6 && action == GLFW_PRESS)
-    {
-        if(terrain_resolution >= 4) terrain_resolution /= 2;
-    }
+    // if(key == GLFW_KEY_6 && action == GLFW_PRESS)
+    // {
+    //     if(terrain_resolution >= 4) terrain_resolution /= 2;
+    // }
 
     if(key == GLFW_KEY_C && action == GLFW_PRESS)
     {
         isInFreeMode = !isInFreeMode;
-        glm::vec3 position = isInFreeMode ? glm::vec3( 0, 0, 5 ) : glm::vec3(0,5,5);
+        glm::vec3 position = isInFreeMode ? glm::vec3( 0, 0, 10 ) : glm::vec3(0.0,50.0,40.0);
         float verticalAngle = isInFreeMode ? 0.2f : -M_PI/4;
-        //setParameters(position, verticalAngle, 3.14f, isInFreeMode);
+        setParameters(position, verticalAngle, 3.14f, isInFreeMode);
     }
 
     if(key == GLFW_KEY_UP && action == GLFW_PRESS)
     {
-        orbitSpeed += 2.0f;
+        orbitAngle += 2.0f;
+
     }
     if(key == GLFW_KEY_DOWN && action == GLFW_PRESS)
     {
-        orbitSpeed -= 2.0f;
+        orbitAngle -= 2.0f;
+
     }
+}
+
+// Evaluates collisions between an entity and the terrain
+bool computeCollisions(Entity &e, Entity &terrain, const char* pathHeightMap, float offset, float &moveY)
+{
+    glm::vec3 centerA = e.transform.getLocalPosition();
+    int height, width, nbChannels;
+    unsigned char *data = stbi_load(pathHeightMap, &width, &height, &nbChannels, 0);
+    // Cartesian equation terrain
+    Square* s = dynamic_cast<Square*>(terrain.meshes[0]);
+    glm::vec3 normal = s->normal();
+    glm::vec3 point = s->bottomLeft();
+    float a = normal.x; float b = normal.y; float c = normal.z;
+    float d = -(a * point.x) - (b * point.y) - (c * point.z);
+    // Projection;
+    float lambda = (a * centerA.x + b * centerA.y + c * centerA.z + d)/(a*a + b*b + c*c);
+    glm::vec3 projection = glm::vec3(centerA.x - lambda*a, centerA.y - lambda*b, centerA.z - lambda*c);
+    float u,v;
+    glm::vec3 X = s->bottomRight() - s->bottomLeft();
+    glm::vec3 Y = s->upLeft() - s->bottomLeft();
+    glm::vec3 p_bottom = projection - s->bottomLeft();
+    glm::vec3 projP_X = (glm::dot(p_bottom, X)/glm::length(X) * glm::length(X))*X;
+    glm::vec3 projP_Y = (glm::dot(p_bottom, Y)/glm::length(Y) * glm::length(X))*Y;
+    u = glm::length(projP_X)/glm::length(X);
+    v = glm::length(projP_Y)/glm::length(Y);
+    unsigned char *texel = data + (int)(v + width * u) * nbChannels;
+    unsigned char heightTexel = texel[0];
+    moveY = ((float)(heightTexel)/255.0f + offset) - centerA.y;
+    return (centerA.y >= 0 && centerA.y < ((float)(heightTexel)/255.0f + offset));
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
