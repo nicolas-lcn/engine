@@ -27,8 +27,9 @@ void main(){
 	o_uv0 = uv0;
 	o_height = offset.y;
 	o_normalWorld = normalMatrix * normal_modelspace;
-    if(isVertTerrain) gl_Position = MVP * offset;
-    else gl_Position = MVP * vec4(vertices_position_modelspace, 1);
+    //if(isVertTerrain) gl_Position = MVP * offset;
+    //else gl_Position = MVP * vec4(vertices_position_modelspace, 1);
+    gl_Position = MVP * vec4(vertices_position_modelspace, 1);
 
 }
 

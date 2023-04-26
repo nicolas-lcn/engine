@@ -15,6 +15,7 @@ GLFWwindow* window;
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp> 
+#include <glm/gtx/rotate_vector.hpp>
 #include <iostream>
 
 using namespace glm;
@@ -30,6 +31,7 @@ using namespace glm;
 void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 bool computeCollisions(Entity &a, Entity &terrain, const char* pathHeightMap, float offset, float &moveY);
+bool computeCollisions(Entity &e);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -63,6 +65,11 @@ int previous_res = terrain_resolution;
 //character
 float characterSpeed = 5.0f;
 glm::vec3 move;
+
+bool isJumping;
+bool isMoving;
+float rebound = 0.8f;
+
 
 
 
@@ -149,24 +156,34 @@ int main( void )
     terrain.transform.setScale(glm::vec3(3.0f));
     terrain.updateSelfAndChild();
     terrain.meshes[0]->addTexture("../data/textures/grass.bmp", "ground");
-    terrain.meshes[0]->addTexture("../data/textures/rock.bmp", "h_ground");
-    terrain.meshes[0]->addTexture("../data/textures/snowrocks.bmp", "heights");
-    terrain.meshes[0]->addTexture("../data/textures/Heightmap_Mountain.bmp", "heightmap");
+    // terrain.meshes[0]->addTexture("../data/textures/rock.bmp", "h_ground");
+    // terrain.meshes[0]->addTexture("../data/textures/snowrocks.bmp", "heights");
+    // terrain.meshes[0]->addTexture("../data/textures/Heightmap_Mountain.bmp", "heightmap");
 
-    // Entity character = Entity("dummy sphere", 3);
-    // character.transform.setLocalPosition(glm::vec3(1.0f));
-    // character.transform.setScale(glm::vec3(3.0f));
-    // character.updateSelfAndChild();
-    // character.meshes[0]->addTexture("../data/textures/leopard.bmp", "objectTex");
+    // // Entity character = Entity("dummy sphere", 3);
+    // // character.transform.setLocalPosition(glm::vec3(1.0f));
+    // // character.transform.setScale(glm::vec3(3.0f));
+    // // character.updateSelfAndChild();
+    // // character.meshes[0]->addTexture("../data/textures/leopard.bmp", "objectTex");
 
-    ////////// LOD BUNNY //////////////
-    LODEntity character("../data/models/icosphere.off", 1);
-    character.addMesh("../data/models/icosphere1.off", 1);
-    character.addMesh("../data/models/icosphere2.off", 1);
+    // ////////// LOD BUNNY //////////////
+    // LODEntity character("../data/models/icosphere.off", 1);
+    // character.addMesh("../data/models/icosphere1.off", 1);
+    // character.addMesh("../data/models/icosphere2.off", 1);
     
 
-    // character.transform.setScale(glm::vec3(2.0f));
-    character.updateSelfAndChild();
+    // // character.transform.setScale(glm::vec3(2.0f));
+    // character.updateSelfAndChild();
+
+
+    ////////// CUBE ///////////
+    Entity cube("../data/models/cube.off", 1);
+    RigidBody rb = RigidBody(1.0);
+    cube.setRigidBody(rb);
+    cube.transform.setLocalPosition(glm::vec3( 0, 3.0, 9.0 ));
+    glm::vec3 init_v = glm::vec3(0.0, 0.04, -0.04);
+    cube.getRigidBody()->setSpeed(init_v);
+    cube.updateSelfAndChild();
 
 //////////////////////////////////////////////////////////////////////
 
@@ -237,14 +254,14 @@ int main( void )
 
 
         /************ LOD **********/
-        glm::vec3 camPos = getCamPosition();
-        if(glm::length(character.transform.getLocalPosition() - camPos) < 10) character.setCurrentLevel(0);
-        else if(glm::length(character.transform.getLocalPosition() - camPos) < 15) character.setCurrentLevel(1);
-        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 6) character.setCurrentLevel(2);
-        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 8) character.setCurrentLevel(3);
-        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 10) character.setCurrentLevel(4);
-        // else character.setCurrentLevel(5);
-        else character.setCurrentLevel(2);
+        // glm::vec3 camPos = getCamPosition();
+        // if(glm::length(character.transform.getLocalPosition() - camPos) < 10) character.setCurrentLevel(0);
+        // else if(glm::length(character.transform.getLocalPosition() - camPos) < 15) character.setCurrentLevel(1);
+        // // else if(glm::length(character.transform.getLocalPosition() - camPos) < 6) character.setCurrentLevel(2);
+        // // else if(glm::length(character.transform.getLocalPosition() - camPos) < 8) character.setCurrentLevel(3);
+        // // else if(glm::length(character.transform.getLocalPosition() - camPos) < 10) character.setCurrentLevel(4);
+        // // else character.setCurrentLevel(5);
+        // else character.setCurrentLevel(2);
 
 
         /****************************************/
@@ -265,14 +282,41 @@ int main( void )
         }
         glUniform1i(glGetUniformLocation(programID, "isVertTerrain"), false);
         glUniform1i(glGetUniformLocation(programID, "isFragTerrain"), false);
-        glUniformMatrix4fv(modelID, 1, false, glm::value_ptr(character.transform.getModelMatrix()));
-        character.Draw(programID);
-        float moveY = 0.0f;
-        bool collides = computeCollisions(character, terrain, "../data/textures/Heightmap_Mountain.bmp", 3.5, moveY);
-        move += glm::vec3(0.0f, moveY, 0.0f);
-        character.transform.setLocalPosition(character.transform.getLocalPosition() + (characterSpeed * deltaTime * move));
-        character.updateSelfAndChild();
-        move = glm::vec3(0.0f);
+        cube.update(deltaTime);
+        glm::vec3 noSpeed(0.0, 0.0, 0.0);
+        if(isJumping)
+        {
+            cube.getRigidBody()->applyForce(glm::vec3(0.0, 7.0, -3.0));
+            isJumping = false;
+        }
+        if(isMoving)
+        {
+            cube.getRigidBody()->applyForce(move);
+            isMoving = false;
+        }
+        if(computeCollisions(cube))
+        {
+            // cube.getRigidBody()->applyForce(glm::vec3(0.0, 9.81, 0.0));
+            // cube.getRigidBody()->setSpeed(noSpeed);
+            glm::vec3 reboundVec = cube.getRigidBody()->computeRebound(glm::vec3(0.0, 1.0, 0.0));
+            reboundVec = rebound * reboundVec;
+            cube.getRigidBody()->setSpeed(reboundVec); 
+            if(glm::length(cube.getRigidBody()->getSpeed()) <= 0.01f)
+            {
+                cube.getRigidBody()->applyForce(glm::vec3(0.0, 0.5, 0.0));
+                cube.getRigidBody()->setSpeed(noSpeed);
+
+            }
+            
+        }
+        glUniformMatrix4fv(modelID, 1, false, glm::value_ptr(cube.transform.getModelMatrix()));
+        cube.Draw(programID);
+        // float moveY = 0.0f;
+        // bool collides = computeCollisions(character, terrain, "../data/textures/Heightmap_Mountain.bmp", 3.5, moveY);
+        // move += glm::vec3(0.0f, moveY, 0.0f);
+        // character.transform.setLocalPosition(character.transform.getLocalPosition() + (characterSpeed * deltaTime * move));
+        // character.updateSelfAndChild();
+        // move = glm::vec3(0.0f);
 
         // earth->transform.setEulerRot({0.f, earth->transform.getEulerRot().y + (50.0f * deltaTime), 0.f});
         // sun.transform.setEulerRot({0.f, sun.transform.getEulerRot().y + (20.0f * deltaTime), 0.f});
@@ -294,7 +338,7 @@ int main( void )
     // earth->meshes[0].deleteBuffers();
     // moon->meshes[0].deleteBuffers();
     terrain.meshes[0]->deleteBuffers();
-    character.meshes[0]->deleteBuffers();
+    cube.meshes[0]->deleteBuffers();
 
     // Close OpenGL window and terminate GLFW
     glfwTerminate();
@@ -309,10 +353,29 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if(glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) move = glm::vec3(0, 0, 1);
-    if(glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) move = glm::vec3(0, 0, -1);
-    if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) move = glm::vec3(-1, 0, 0);
-    if(glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) move = glm::vec3(1, 0, 0);
+    if(glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+    {
+        move = glm::vec3(0, 0, 0.2);
+        isMoving = true;
+    }
+    if(glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
+    {
+        move = glm::vec3(0, 0, -0.2);
+        isMoving = true;
+
+    }
+    if(glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+    { 
+        move = glm::vec3(-0.2, 0, 0);
+        isMoving = true;
+
+    }
+    if(glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) 
+    {
+        move = glm::vec3(0.2, 0, 0);
+        isMoving = true;
+
+    }
 
     computeMatricesFromInputs();
 }
@@ -332,7 +395,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if(key == GLFW_KEY_C && action == GLFW_PRESS)
     {
         isInFreeMode = !isInFreeMode;
-        glm::vec3 position = isInFreeMode ? glm::vec3( 0, 0, 10 ) : glm::vec3(0.0,50.0,40.0);
+        glm::vec3 position = isInFreeMode ? glm::vec3( 0, 2.0, 10 ) : glm::vec3(0.0,20.0,20.0);
         float verticalAngle = isInFreeMode ? 0.2f : -M_PI/4;
         setParameters(position, verticalAngle, 3.14f, isInFreeMode);
     }
@@ -346,6 +409,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     {
         orbitAngle -= 2.0f;
 
+    }
+
+    if(key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+    {
+        isJumping = true;
     }
 }
 
@@ -375,7 +443,12 @@ bool computeCollisions(Entity &e, Entity &terrain, const char* pathHeightMap, fl
     unsigned char *texel = data + (int)(v + width * u) * nbChannels;
     unsigned char heightTexel = texel[0];
     moveY = ((float)(heightTexel)/255.0f + offset) - centerA.y;
-    return (centerA.y >= 0 && centerA.y < ((float)(heightTexel)/255.0f + offset));
+    return (centerA.y >= 0 && centerA.y < ((float)(heightTexel)/255.0f + offset)); 
+}
+
+bool computeCollisions(Entity &e)
+{
+    return (e.transform.getLocalPosition() - glm::vec3(0.1, 0.1, 0.1))[1] <= 0;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

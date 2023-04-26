@@ -16,7 +16,7 @@ class Model
 {
 public:
 	std::vector<Mesh*> meshes;
-
+	
 	Model(const char* path, unsigned int type){loadMesh(path, type);}
 
 	void Draw(GLuint shaderID)
@@ -55,7 +55,7 @@ protected:
 	    		mesh = new Mesh(indexed_vertices, indices, triangles);
 	    		break;
 	    	case SQUARE:
-	    		mesh = dynamic_cast<Mesh*>(new Square(glm::vec3(-1.0,0.0,-1.0), glm::vec3(1.0,0.0,-1.0), glm::vec3(1.0,0.0,1.0), glm::vec3(-1.0,0.0,1.0), 32));
+	    		mesh = dynamic_cast<Mesh*>(new Square(glm::vec3(-3.0,0.0,-3.0), glm::vec3(3.0,0.0,-3.0), glm::vec3(3.0,0.0,3.0), glm::vec3(-3.0,0.0,3.0), 32));
 	    		break;
 	    	default:
 	    		mesh = dynamic_cast<Mesh*>(new Sphere(1, {0.f, 0.f, 0.f}));

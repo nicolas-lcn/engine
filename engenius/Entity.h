@@ -5,6 +5,8 @@
 #include <memory>
 
 #include "Model.h"
+#include "RigidBody.h"
+
 
 class Transform
 {
@@ -108,6 +110,9 @@ public:
         children.back()->parent = this;
     }
 
+    void setRigidBody(RigidBody &_rb){rb = _rb;}
+    RigidBody* getRigidBody(){return &rb;}
+
     //Update transform if it was changed
     void updateSelfAndChild()
     {
@@ -136,6 +141,16 @@ public:
             child->forceUpdateSelfAndChild();
         }
     }
+
+    void update(float deltaTime)
+    {
+        rb.computeForces(deltaTime);
+        transform.setLocalPosition(transform.getLocalPosition() + rb.getSpeed());
+        updateSelfAndChild();
+    }
+
+protected:
+    RigidBody rb;
 };
 
 class LODEntity : public Entity

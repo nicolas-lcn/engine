@@ -18,7 +18,6 @@
 
 #include "Triangle.h"
 
-
 struct Texture {
     unsigned int id;
     std::string type;
@@ -50,6 +49,7 @@ protected:
 
 	std::vector<Texture> textures;
 	std::vector<std::vector<unsigned short>> m_triangles;
+
 
 public:
 	Mesh(){};
@@ -100,6 +100,8 @@ public:
 
 	}
 
+	
+
 	std::vector<glm::vec3> vertices(){return m_vertices;}
 	std::vector<unsigned short> indexes(){return m_indexes;}
 	std::vector<std::vector<unsigned short>> triangles(){return m_triangles;}
@@ -145,6 +147,7 @@ public:
 	    glGenBuffers(1, &uvsBuffer);
 	    glBindBuffer(GL_ARRAY_BUFFER, uvsBuffer);
 	    glBufferData(GL_ARRAY_BUFFER, m_uv.size() * sizeof(glm::vec2), &m_uv[0], GL_STATIC_DRAW);
+
 	}
 
 	void draw(GLuint shaderID)
